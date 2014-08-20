@@ -6,6 +6,9 @@
    Identifies and uninstalls Oracle's Java software from the local machine using WMI. The query to locate the installed software interogates the WIN32_Products class and includes exclusions to avoid matches to third party software that has "Java" in it's name.
    Use the -KeepVersion argument to specifiy a version to keep installed on a computer.
    Use the -Whatif switch to test the result without actually uninstalling anything.
+   Use the -Restart switch to have the script restart the computer after uninstalling all found programs, if any uninstalls idicate a restart is required
+   Use the -Wait switch to wait for all processes with a name starting with Java to terminate before progressing
+   Use the -Timeout command inconjunction with the -Wait switch and specify an integer representing the number of seconds to wait before forcibly terminating the process.
 
    The script will return the results of the WMI query as an object array.
    Credit to commenter on my blog "Carsten" who supplied an expanded list of software to exclude.
@@ -17,10 +20,19 @@
 .EXAMPLE
    Uninstall-Java -KeepVersion "7.0.45"
    Uninstalls all Java except version that starts with "7.0.45"
+.EXAMPLE
+    Uninstall-java -wait
+    Waits for any Java processes to terminate before uninstalling
+.EXAMPLE
+    Uninstall-java -wait -timeout 60
+    Waits for any java processes to terminate before uninstalling java upt ot the number of seconds defined in the Timeout parameter.
+.EXAMPLE
+    Uninstall-Java -Restart
+    Uninstalls any Java products and will restart the computer if any of the uninstall results indicate a restart is required.
 #>
 
     [CmdletBinding()]
-    [OutputType([int])]
+    
     Param
     (
         # Specify a version of Java to keep on the copmputer [optional]
@@ -32,12 +44,27 @@
         [Parameter(Mandatory=$false,
                    ValueFromPipelineByPropertyName=$false,
                    Position=1)]
-        [switch]$Whatif
+        [switch]$Whatif,
+        [Parameter(ParameterSetName='Wait',
+                    Mandatory=$false,
+                    ValueFromPipelineByPropertyName=$false,
+                    Position=2)]
+        [switch]$Wait,
+        [Parameter(ParameterSetName='Wait',
+                    Mandatory=$false,
+                    ValueFromPipelineByPropertyName=$false,
+                    Position=3)]
+        [int32]$Timeout,
+        [Parameter(Mandatory=$false,
+        ValueFromPipelineByPropertyName=$false,
+                    Position=4)]
+        [switch]$Restart=$false
 
     )
 
     Begin
     {
+        Write-Verbose "Script Started $(Get-Date)"
         #Construct query
         
         $query=“select * from win32_Product where (Name like 'Java %' or Name like 'Java(TM)%' or Name like 'J2SE%') and (Name <> 'Java Auto Updater') and ((Vendor='Sun Microsystems, Inc.') or (Vendor='Oracle')) and (NOT Name like '%CompuGROUP%') and (NOT Name like '%IBM%') and (NOT Name like '%DB%') and (NOT Name like '%Advanced Imaging%') and (NOT Name like '%Media Framework%') and (NOT Name like '%SDK%') and (NOT Name like '%Development Kit%')“
@@ -48,7 +75,7 @@
         [array]$javas=Get-WmiObject -query $query
         if ($javas.count -gt 0)
         {
-            write-host "Java is Installed" -ForegroundColor Yellow
+            write-Verbose "Java is Installed"
             
             if ($Whatif)
             {
@@ -57,20 +84,73 @@
             else
             {
                 #Get all the Java processes and kill them. If java is running and the processes aren't killed then this script will invoke a sudden reboot.
-                [array]$processes=Get-Process -Name "Java*"
-                if ($processes.Count -gt 0){foreach ($myprocess in $processes){$myprocess.kill()}}
-    
+                
+                while (([array]$processes=Get-Process -Name "Java*").Count -gt 0)
+                {
+                    Write-Verbose "$($processes.count) Java processes found running"
+                    if ($Wait)
+                    {
+                        Write-Verbose "Waiting for java processes to terminate"
+                        
+                        foreach ($myprocess in $processes)
+                        {
+                            write-debug "Process ID $($myprocess.id) found"
+                            if ($Timeout)
+                            {
+                                Try
+                                {
+                                    Wait-Process -InputObject $myprocess -Verbose:$PSBoundParameters['Verbose'] -Debug:$PSBoundParameters['Debug'] -Timeout $Timeout -ErrorAction:Stop
+                                }
+                                Catch
+                                {
+                                    Write-Verbose "Timeout Expired, Killing java process"
+                                    $myprocess.kill()
+                                    Start-Sleep -Seconds 1 -Verbose:$PSBoundParameters['Verbose'] -Debug:$PSBoundParameters['Debug']
+                                }
+
+                            }
+                            else {Wait-Process -InputObject $myprocess -Verbose:$PSBoundParameters['Verbose'] -Debug:$PSBoundParameters['Debug']}
+                        }
+                    }
+                    else
+                    {
+                        Write-Verbose "Killing $($processes.count) Java processes"
+                        foreach ($myprocess in $processes)
+                        {
+                            write-debug "Process ID $($myprocess.id) found and will be killed"
+                            $myprocess.kill()
+
+                        }
+                    }
+                    
+                }
+
                 #Loop through the installed Java products.
-                $Uninstalled= @()
+                
                 foreach($java in $javas)
                 {
-                    write-host "Uninstalling "$java.name -ForegroundColor Yellow
-                    $Uninstalled+=$java.Uninstall()
+                    write-Verbose "Uninstalling $($java.name)"
+                    $Uninstalled=$java.Uninstall()
+                    if ($Uninstalled.ReturnValue -eq 3010)
+                    {
+                        Write-Verbose "Restart Required for $($java.name)"
+                        $needrestart=$true
+                    }
                 }
-                Return $Uninstalled
+                
             }
         }
     }
     End
     {
+        if ($Restart -eq $true -and ($needrestart -eq $true -or $PSBoundParameters['Debug'] -eq $true))
+        {
+            Write-Verbose "Restarting Computer"
+            Restart-Computer -Force -AsJob -Confirm:$false -Verbose:$PSBoundParameters['Verbose'] -Debug:$PSBoundParameters['Debug']
+        }
+        elseif ($needrestart -eq $true)
+        {
+            Write-Host "Restart Required"
+        }
+        Write-Verbose "Script Complete $(Get-Date)"
     }
