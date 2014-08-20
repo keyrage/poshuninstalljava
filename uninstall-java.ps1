@@ -3,7 +3,7 @@
 .Synopsis
    Finds all Oracle Java products (excluding the auto updater which actually gets uninstalled when the main install is removed).
 .DESCRIPTION
-   Identifies and uninstalls Oracle's Java software from the local machine using WMI. The query to locate the installed software interogates the WIN32_Products class and includes exclusions to avoid matches to third party software that has "Java" in it's name.
+   Identifies and uninstalls Oracle's Java software from the local machine using WMI calss. The query to locate the installed software interogates the WIN32_Products class and includes exclusions to avoid matches to third party software that has "Java" in it's name.
    Use the -KeepVersion argument to specifiy a version to keep installed on a computer.
    Use the -Whatif switch to test the result without actually uninstalling anything.
    Use the -Restart switch to have the script restart the computer after uninstalling all found programs, if any uninstalls idicate a restart is required
