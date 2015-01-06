@@ -67,7 +67,7 @@
         Write-Verbose "Script Started $(Get-Date)"
         #Construct query
         
-        $query="select * from win32_Product where (Name like 'Java %' or Name like 'Java(TM)%' or Name like 'J2SE%') and (Name <> 'Java Auto Updater') and ((Vendor='Sun Microsystems, Inc.') or (Vendor='Oracle')) and (NOT Name like '%CompuGROUP%') and (NOT Name like '%IBM%') and (NOT Name like '%DB%') and (NOT Name like '%Advanced Imaging%') and (NOT Name like '%Media Framework%') and (NOT Name like '%SDK%') and (NOT Name like '%Development Kit%')"
+        $query= "select * from win32_Product where (Name like 'Java %' or Name like 'Java(TM)%' or Name like 'J2SE%') and (Name <> 'Java Auto Updater') and ((Vendor='Sun Microsystems, Inc.') or (Vendor='Oracle') or (Vendor='Oracle Corporation')) and (NOT Name like '%CompuGROUP%') and (NOT Name like '%IBM%') and (NOT Name like '%DB%') and (NOT Name like '%Advanced Imaging%') and (NOT Name like '%Media Framework%') and (NOT Name like '%SDK%') and (NOT Name like '%Development Kit%')"
         if ($KeepVersion){$query=$query + " and (NOT Version like '$KeepVersion%')"}
     }
     Process
@@ -84,8 +84,8 @@
             else
             {
                 #Get all the Java processes and kill them. If java is running and the processes aren't killed then this script will invoke a sudden reboot.
-                
-                while (([array]$processes=Get-Process -Name "Java*").Count -gt 0)
+				[array]$processes= Get-Process -Name "Java*"
+                while ($processes.Count -gt 0)
                 {
                     Write-Verbose "$($processes.count) Java processes found running"
                     if ($Wait)
@@ -122,7 +122,7 @@
 
                         }
                     }
-                    
+				$processes = Get-Process -Name "Java*"
                 }
 
                 #Loop through the installed Java products.
