@@ -136,6 +136,7 @@
                         Write-Verbose "Restart Required for $($java.name)"
                         $needrestart=$true
                     }
+				Write-Verbose "$($java.name) return code is $($Uninstalled.ReturnValue)"
                 }
                 
             }
