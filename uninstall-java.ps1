@@ -104,7 +104,8 @@
                                 Catch
                                 {
                                     Write-Verbose "Timeout Expired, Killing java process"
-                                    $myprocess.kill()
+                                    $processkillresult = $myprocess.kill()
+                                    Write-Debug "Process kill result $processkillresult"
                                     Start-Sleep -Seconds 1 -Verbose:$PSBoundParameters['Verbose'] -Debug:$PSBoundParameters['Debug']
                                 }
 
@@ -118,8 +119,8 @@
                         foreach ($myprocess in $processes)
                         {
                             write-debug "Process ID $($myprocess.id) found and will be killed"
-                            $myprocess.kill()
-
+                            $processkillresult = $myprocess.kill()
+                            Write-Debug "Process kill result $processkillresult"
                         }
                     }
 				$processes = Get-Process -Name "Java*"

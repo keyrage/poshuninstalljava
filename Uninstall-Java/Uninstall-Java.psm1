@@ -109,8 +109,8 @@ function Uninstall-Java
 						foreach ($myprocess in $processes)
 						{
 							write-debug "Process ID $($myprocess.id) found and will be killed"
-							$myprocess.kill()
-							
+							$processkillresult=$myprocess.kill()
+							Write-Debug "Process kill result $processkillresult"
 						}
 					}
 					$processes = Get-Process -Name "Java*"
@@ -132,7 +132,7 @@ function Uninstall-Java
 			}
 		}
 	}
-	End
+	Ends
 	{
 		if ($Restart -eq $true -and ($needrestart -eq $true -or $PSBoundParameters['Debug'] -eq $true))
 		{
